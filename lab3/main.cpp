@@ -1,13 +1,15 @@
 #include <iostream>
 #include <vector>
 #include <fstream>
+#include <stdexcept>
 
-// Чтение матрицы
+// Класс для чтения матрицы из файла
+template <typename T>
 class MatrixReader {
 public:
-    static std::vector<std::vector<int>> readMatrixFromFile(const std::string& filename) {
+    static std::vector<std::vector<T>> readMatrixFromFile(const std::string& filename) {
         std::ifstream file(filename);
-        std::vector<std::vector<int>> matrix;
+        std::vector<std::vector<T>> matrix;
         
         if (!file) {
             std::cerr << "Error opening file: " << filename << std::endl;
@@ -15,9 +17,9 @@ public:
         }
         
         unsigned rows, cols;
-        file >> rows >> cols;
+        file >> rows >> cols;  // Чтение размеров матрицы
 
-        matrix.resize(rows, std::vector<int>(cols));
+        matrix.resize(rows, std::vector<T>(cols));
 
         for (unsigned i = 0; i < rows; ++i) {
             for (unsigned j = 0; j < cols; ++j) {
@@ -30,10 +32,11 @@ public:
     }
 };
 
-// Запись матрицы в файл
+// Класс для записи матрицы в файл
+template <typename T>
 class MatrixWriter {
 public:
-    static void writeMatrixToFile(const std::string& filename, const std::vector<std::vector<int>>& matrix) {
+    static void writeMatrixToFile(const std::string& filename, const std::vector<std::vector<T>>& matrix) {
         std::ofstream file(filename);
         
         if (!file) {
@@ -44,7 +47,7 @@ public:
         unsigned rows = matrix.size();
         unsigned cols = matrix[0].size();
 
-        file << rows << " " << cols << std::endl;
+        file << rows << " " << cols << std::endl;  // Запись размеров матрицы
 
         for (unsigned i = 0; i < rows; ++i) {
             for (unsigned j = 0; j < cols; ++j) {
@@ -57,29 +60,32 @@ public:
     }
 };
 
-// Основной класс для работы с матрицами
+// Класс для плотных матриц
+template <typename T>
 class MatrixDense {
 private:
-    std::vector<std::vector<int>> _data;
+    std::vector<std::vector<T>> _data;
     unsigned _rows, _cols;
 
 public:
+    // Конструктор
     MatrixDense(unsigned rows, unsigned cols) : _rows(rows), _cols(cols) {
-        _data.resize(rows, std::vector<int>(cols, 0));
+        _data.resize(rows, std::vector<T>(cols, 0));
     }
 
-    MatrixDense(const std::vector<std::vector<int>>& data) : _data(data) {
+    // Конструктор от готовых данных
+    MatrixDense(const std::vector<std::vector<T>>& data) : _data(data) {
         _rows = data.size();
         _cols = data[0].size();
     }
 
-    // Сложение матриц
-    MatrixDense operator+(const MatrixDense& other) {
+    // Перегрузка оператора +
+    MatrixDense<T> operator+(const MatrixDense<T>& other) {
         if (_rows != other._rows || _cols != other._cols) {
             throw std::invalid_argument("Matrix dimensions must match for addition.");
         }
 
-        MatrixDense result(_rows, _cols);
+        MatrixDense<T> result(_rows, _cols);
         for (unsigned i = 0; i < _rows; ++i) {
             for (unsigned j = 0; j < _cols; ++j) {
                 result._data[i][j] = _data[i][j] + other._data[i][j];
@@ -87,6 +93,19 @@ public:
         }
 
         return result;
+    }
+
+    // Метод для проверки, является ли матрица разреженной
+    bool isSparse() const {
+        unsigned nonZeroCount = 0;
+        for (unsigned i = 0; i < _rows; ++i) {
+            for (unsigned j = 0; j < _cols; ++j) {
+                if (_data[i][j] != 0) {
+                    nonZeroCount++;
+                }
+            }
+        }
+        return (nonZeroCount <= (_rows * _cols) / 2); // Если больше половины элементов — нули
     }
 
     void printMatrix() const {
@@ -98,27 +117,65 @@ public:
         }
     }
 
-    const std::vector<std::vector<int>>& getData() const {
+    const std::vector<std::vector<T>>& getData() const {
         return _data;
+    }
+
+    // Деструктор для освобождения памяти
+    ~MatrixDense() {
+        std::cout << "Memory released for MatrixDense\n";
+    }
+};
+
+// Класс для диагональных матриц
+template <typename T>
+class MatrixDiagonal : public MatrixDense<T> {
+public:
+    MatrixDiagonal(const std::vector<std::vector<T>>& data) : MatrixDense<T>(data) {}
+
+    // Метод для проверки, является ли матрица диагональной
+    bool isDiagonal() const {
+        const auto& matrix = this->getData();
+        unsigned rows = matrix.size();
+        unsigned cols = matrix[0].size();
+
+        for (unsigned i = 0; i < rows; ++i) {
+            for (unsigned j = 0; j < cols; ++j) {
+                if (i != j && matrix[i][j] != 0) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 };
 
 // Основная программа
 int main() {
-    // Чтение матриц из файлов
-    std::vector<std::vector<int>> matrixData1 = MatrixReader::readMatrixFromFile("matrix1.txt");
-    std::vector<std::vector<int>> matrixData2 = MatrixReader::readMatrixFromFile("matrix2.txt");
+    // Чтение матрицы из файла
+    std::vector<std::vector<int>> matrixData = MatrixReader<int>::readMatrixFromFile("matrix.txt");
 
-    MatrixDense matrix1(matrixData1);
-    MatrixDense matrix2(matrixData2);
+    // Создаем экземпляр MatrixDense
+    MatrixDense<int> matrix1(matrixData);
 
-    // Сложение матриц
-    MatrixDense resultMatrix = matrix1 + matrix2;
+    // Проверка на плотную или разреженную матрицу
+    if (matrix1.isSparse()) {
+        std::cout << "The matrix is sparse." << std::endl;
+    } else {
+        std::cout << "The matrix is dense." << std::endl;
+    }
 
-    // Запись результата в новый файл
-    MatrixWriter::writeMatrixToFile("result_matrix.txt", resultMatrix.getData());
-    std::cout << "Resulting matrix after addition:" << std::endl;
-    resultMatrix.printMatrix();
+    // Создаем экземпляр MatrixDiagonal для проверки на диагональность
+    MatrixDiagonal<int> diagonalMatrix(matrixData);
+
+    if (diagonalMatrix.isDiagonal()) {
+        std::cout << "The matrix is diagonal." << std::endl;
+    } else {
+        std::cout << "The matrix is not diagonal." << std::endl;
+    }
+
+    // Запись результата в файл
+    MatrixWriter<int>::writeMatrixToFile("result_matrix.txt", matrixData);
 
     return 0;
 }
