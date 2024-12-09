@@ -77,16 +77,27 @@ int main() {
     Vertex<std::string, int> a("A");
     Vertex<std::string, int> b("B");
     Vertex<std::string, int> c("C");
+    Vertex<std::string, int> d("D");
+    Vertex<std::string, int> e("E");
+    Vertex<std::string, int> f("F");
+    Vertex<std::string, int> g("G");
+    Vertex<std::string, int> h("H");
 
     // Добавляем ребра
     a.addEdge(10, &b);
-    b.addEdge(20, &c);
     a.addEdge(15, &c);
+    b.addEdge(10, &f);
+    b.addEdge(20, &d);
+    c.addEdge(5, &d);
+    c.addEdge(25, &e);
+    d.addEdge(5, &g); // Петля
+    g.addEdge(5, &d); // Петля
+    e.addEdge(25, &h); // Тупик
 
-    // Поиск пути из A в C
+    // Поиск пути из A в H
     std::vector<const Vertex<std::string, int>*> visited;
     int cost = 0;
-    if (depthFirstSearch(&a, std::string("C"), visited, cost)) {
+    if (depthFirstSearch(&a, std::string("H"), visited, cost)) {
         std::cout << "Path found with cost: " << cost << "\n";
         std::cout << "Visited nodes: ";
         for (const auto& vertex : visited) {
@@ -99,4 +110,3 @@ int main() {
 
     return 0;
 }
-
